@@ -28,6 +28,15 @@ repositories {
     maven {
         url "http://dvs1.progwml6.com/files/maven"
     }
+
+    maven {
+        name = "ic2"
+        url = "http://maven.ic2.player.to/"
+    }
+    maven {
+        name = "CoFH Maven"
+        url = "http://maven.covers1624.net"
+    }
 }
 
 apply plugin: 'net.minecraftforge.gradle.forge'
@@ -69,6 +78,9 @@ dependencies {
         'Baubles-deobf.jar'
     )
     deobfCompile "mezz.jei:jei_1.10.2:3.7.8.234"
+
+    compile "cofh:CoFHCore:1.10.2-4.1.9.13:deobf"
+    compile 'net.industrial-craft:industrialcraft-2:2.6.252-ex110:dev'
 
     //and a bit more for SCP
     sshAntTask "org.apache.ant:ant-jsch:1.7.1", "jsch:jsch:0.1.29"

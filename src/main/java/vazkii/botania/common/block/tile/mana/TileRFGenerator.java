@@ -15,19 +15,28 @@ import java.util.Map;
 
 import cofh.api.energy.IEnergyConnection;
 import cofh.api.energy.IEnergyReceiver;
+import ic2.api.energy.event.EnergyTileLoadEvent;
+import ic2.api.energy.event.EnergyTileUnloadEvent;
+import ic2.api.energy.tile.IEnergyAcceptor;
+import ic2.api.energy.tile.IEnergySource;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Optional;
 import vazkii.botania.api.mana.IManaReceiver;
 import vazkii.botania.common.Botania;
 import vazkii.botania.common.block.tile.TileMod;
 
-@Optional.Interface(iface = "cofh.api.energy.IEnergyConnection", modid = "CoFHAPI|energy")
-public class TileRFGenerator extends TileMod implements IManaReceiver, IEnergyConnection {
+@Optional.InterfaceList({
+		@Optional.Interface(iface = "cofh.api.energy.IEnergyConnection", modid = "CoFHAPI|energy"),
+		@Optional.Interface(iface = "ic2.api.energy.IEnergySource", modid = "IC2")
+})
+public class TileRFGenerator extends TileMod implements IManaReceiver, IEnergyConnection, IEnergySource {
 
 	private static final int CONVERSION_RATE = 10;
+	private static final int IC2_CONVERSION_RATE = 5;
 	private static final int MAX_MANA = 1280 * CONVERSION_RATE;
 
 	private static final String TAG_MANA = "mana";
@@ -46,14 +55,24 @@ public class TileRFGenerator extends TileMod implements IManaReceiver, IEnergyCo
 
 	@Override
 	public void update() {
-		if(!worldObj.isRemote && Botania.rfApiLoaded) {
+		if(!worldObj.isRemote) {
 			if(deadCache)
-				reCache();
+				if(Botania.rfApiLoaded)
+					reCache();
+				if(Botania.ic2ApiLoaded)
+					ic2TileLoad();
+				deadCache = false;
 
 			int transfer = Math.min(mana, 160 * CONVERSION_RATE);
 			mana -= transfer;
 			mana += transmitEnergy(transfer);
 		}
+	}
+
+	@Override
+	public void invalidate() {
+		ic2TileUnload();
+		super.invalidate();
 	}
 
 	@Optional.Method(modid = "CoFHAPI|energy")
@@ -77,7 +96,6 @@ public class TileRFGenerator extends TileMod implements IManaReceiver, IEnergyCo
 		if(deadCache) {
 			for(EnumFacing dir : EnumFacing.VALUES)
 				onNeighborTileChange(pos.offset(dir));
-			deadCache = false;
 		}
 	}
 
@@ -99,6 +117,8 @@ public class TileRFGenerator extends TileMod implements IManaReceiver, IEnergyCo
 			receiverCache.put(side, (IEnergyReceiver)tile);
 		}
 	}
+
+
 
 	@Override
 	public int getCurrentMana() {
@@ -135,4 +155,34 @@ public class TileRFGenerator extends TileMod implements IManaReceiver, IEnergyCo
 		return true;
 	}
 
+
+	@Optional.Method(modid = "IC2")
+	private void ic2TileLoad(){
+		MinecraftForge.EVENT_BUS.post(new EnergyTileLoadEvent(this));
+	}
+
+	@Optional.Method(modid = "IC2")
+	private void ic2TileUnload(){
+		MinecraftForge.EVENT_BUS.post(new EnergyTileUnloadEvent(this));
+	}
+
+	@Optional.Method(modid = "IC2")
+	public double getOfferedEnergy() {
+		return mana * IC2_CONVERSION_RATE;
+	}
+
+	@Optional.Method(modid = "IC2")
+	public void drawEnergy(double v) {
+		mana -= v * IC2_CONVERSION_RATE;
+	}
+
+	@Optional.Method(modid = "IC2")
+	public int getSourceTier() {
+		return 2;
+	}
+
+	@Optional.Method(modid = "IC2")
+	public boolean emitsEnergyTo(IEnergyAcceptor iEnergyAcceptor, EnumFacing enumFacing) {
+		return true;
+	}
 }
